@@ -161,14 +161,14 @@ def plot_spectra(spectra, light_color, reference_spectra=None, width=240, height
     spectra_img = Image.new('RGB', (width, height), 'white')
     draw = ImageDraw.Draw(spectra_img)
 
-    # Normalize the spectra to fit the width of the image
+    # Normalize the spectra to fit the height of the image
     combined_spectra = np.sum(spectra, axis=1)  # Sum across all three channels
     max_intensity = np.max(combined_spectra)
-    normalized_spectra = (combined_spectra / max_intensity * (width - 1)).astype(int)
+    normalized_spectra = (combined_spectra / max_intensity * (height - 1)).astype(int)
 
-    for y, intensity in enumerate(normalized_spectra):
-        r, g, b = light_color[y]
-        draw.line([(0, y), (intensity, y)], fill=(r, g, b))  # Combined channel
+    for x, intensity in enumerate(normalized_spectra):
+        r, g, b = light_color[x]
+        draw.line([(x, 0), (x, intensity)], fill=(r, g, b))  # Vertical bar
 
     # If reference spectra is provided, plot the transmission
     if reference_spectra is not None:
@@ -177,11 +177,10 @@ def plot_spectra(spectra, light_color, reference_spectra=None, width=240, height
             transmission = np.where(combined_reference_spectra > 0, (combined_spectra / combined_reference_spectra) * 100, 0)
         max_transmission = np.max(transmission[np.isfinite(transmission)])
         if max_transmission > 0:
-            normalized_transmission = (transmission / max_transmission * (width - 1)).astype(int)
-            for y, intensity in enumerate(normalized_transmission):
+            normalized_transmission = (transmission / max_transmission * (height - 1)).astype(int)
+            for x, intensity in enumerate(normalized_transmission):
                 if np.isfinite(intensity) and intensity >= 0:
-                    draw.line([(0, y), (intensity, y)], fill='blue')
-
+                    draw.line([(x, 0), (x, intensity)], fill='blue')
     return spectra_img
 
 # Function to display image on LCD
@@ -218,7 +217,7 @@ def main():
                 spectra, light_color = process_frame(frame)
                 spectra_img = plot_spectra(spectra, light_color, reference_spectra, width=160, height=80)
                 current_plot = spectra_img  # Save the current plot to be served by Flask
-                display_on_lcd(camera_img, disp_main)
+                display_on_lcd(camera_img.rotate(90), disp_main)
                 display_on_lcd(spectra_img, disp_side)
 
             logging.info(f'Frame processing time: {time.time() - start}')
