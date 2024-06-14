@@ -206,15 +206,22 @@ def display_on_lcd(image, disp):
     disp.ShowImage(img)
 
 # Function to display the wavelengths of the peaks
-def display_peaks(peaks, wavelengths, disp):
+def display_peaks(peaks, spectra, disp):
     peaks_img = Image.new('RGB', (disp.width, disp.height), 'white')
     draw = ImageDraw.Draw(peaks_img)
     font = ImageFont.load_default()
 
-    for i, (peak, wavelength) in enumerate(zip(peaks, wavelengths)):
-        draw.text((5, i * 10), f"Peak {i + 1}: {wavelength:.2f} nm", font=font, fill="black")
+    # Create a list of the wavelength values and their corresponding colors
+    wavelengths = peaks * (240 / len(spectra))  # Simplified wavelength calculation
 
-    display_on_lcd(peaks_img, disp)
+    for i, peak in enumerate(peaks[:10]):
+        wavelength = wavelengths[i]
+        r, g, b = spectra[peak]  # Color at the peak
+        text = f"Peak {i + 1}: {wavelength:.2f} nm"
+        draw.text((5, i * 10), text, font=font, fill=(r, g, b))  # Use the color of the spectra
+
+    display_on_lcd(peaks_img.rotate(180), disp)  # Rotate the image by 180 degrees to correct the orientation
+
 
 # Main function
 def main():
@@ -250,9 +257,8 @@ def main():
 
             # Find peaks in the spectra
             peaks = find_peaks_in_spectra(np.sum(spectra, axis=1), distance=10)
-            wavelengths = peaks * (240 / len(spectra))  # Simplified wavelength calculation
-            display_peaks(peaks[:10], wavelengths[:10], disp_side2)  # Display up to 10 peaks
-
+            display_peaks(peaks, light_color, disp_side2)  # Display up to 10 peaks
+        
             logging.info(f'Frame processing time: {time.time() - start}')
             time.sleep(0.1)  # Short delay between frames
 
