@@ -1,5 +1,5 @@
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 import logging
 import ST7789
 import LCD_side
@@ -10,6 +10,8 @@ from flask import Flask, send_file, render_template_string
 import threading
 import io
 import spidev as SPI
+from scipy.signal import find_peaks
+import datetime
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -22,7 +24,7 @@ disp_main.bl_DutyCycle(100)
 disp_main.bl_Frequency(1000)
 
 # Initialize the side display
-disp_side = LCD_side.LCD_side(spi=SPI.SpiDev(0, 1), spi_freq=10000000, rst=23, dc=5, bl=12)
+disp_side = LCD_side.LCD_0inch96(spi=SPI.SpiDev(0, 1), spi_freq=10000000, rst=23, dc=5, bl=12)
 disp_side.Init()
 disp_side.clear()
 disp_side.bl_DutyCycle(100)
@@ -37,16 +39,33 @@ KEY3_PIN = 16
 button1 = Button(KEY1_PIN)
 button2 = Button(KEY2_PIN)
 
-# Variables to control the display mode and reference spectra
-display_mode = 0  # 0: camera, 1: plot
+# Variables to control the reference spectra
 reference_spectra = None
 current_plot = Image.new('RGB', (240, 240), 'white')  # Initialize current_plot
 current_camera_image = Image.new('RGB', (240, 240), 'black')  # Initialize current_camera_image
 
-def toggle_display_mode():
-    global display_mode
-    display_mode = (display_mode + 1) % 2  # Cycle through 2 modes (0 and 1)
-    logging.info(f"Display mode: {display_mode}")
+def capture_full_res_image():
+    timestamp = datetime.now().isoformat()
+    global picam2
+    picam2.stop()
+    config = picam2.create_still_configuration(main={"size": (1920, 1080)})  # Full resolution
+    picam2.configure(config)
+    picam2.start()
+    picam2.capture_file(f"full_res_{timestamp}.jpg")
+    picam2.stop()
+
+    # Reconfigure the camera for the regular preview mode
+    config = picam2.create_still_configuration(main={"size": (240, 240)})
+    picam2.configure(config)
+    picam2.start()
+
+    # Process the full-resolution image
+    full_res_image = Image.open(f"full_res_{timestamp}.jpg")
+    spectra, light_color = process_frame(np.array(full_res_image))
+    spectra_img = plot_spectra(spectra, light_color, reference_spectra, width=640, height=480)  # Larger plot size
+    spectra_img.save(f"full_res_plot_{timestamp}.png")
+
+    logging.info("Full-resolution photo and plot captured")
 
 def capture_reference_spectra():
     global reference_spectra
@@ -55,7 +74,7 @@ def capture_reference_spectra():
     reference_spectra, _ = process_frame(frame)
     logging.info("Reference spectra captured")
 
-button1.when_pressed = toggle_display_mode
+button1.when_pressed = capture_full_res_image
 button2.when_pressed = capture_reference_spectra
 
 # Flask setup
@@ -121,28 +140,11 @@ def camera_png():
     return send_file(img_io, mimetype='image/png')
 
 @app.route('/fullres_image.png')
-def capture_full_res_image():
-    global picam2
-    # Stop the camera before reconfiguring
-    picam2.stop()
-    # Configure the camera for full resolution
-    config = picam2.create_still_configuration(main={"size": (1920, 1080)}) # picam2.sensor_resolution})
-    picam2.configure(config)
-    picam2.start()
-    picam2.capture_file("full_res.jpg")
-    picam2.stop()
-
-    # Reconfigure the camera for the regular preview mode
-    config = picam2.create_still_configuration(main={"size": (240, 240)})
-    picam2.configure(config)
-    picam2.start()
-
-    # Process the full-resolution image
-    full_res_image = Image.open("full_res.jpg")
-    spectra, light_color = process_frame(np.array(full_res_image))
-    spectra_img = plot_spectra(spectra, light_color, reference_spectra, width=640, height=480)  # Larger plot size
+def capture_full_res_image_route():
+    capture_full_res_image()
     img_io = io.BytesIO()
-    spectra_img.save(img_io, 'PNG')
+    full_res_image = Image.open("full_res.jpg")
+    full_res_image.save(img_io, 'PNG')
     img_io.seek(0)
     return send_file(img_io, mimetype='image/png')
 
@@ -155,6 +157,11 @@ def process_frame(frame):
     spectra = np.sum(frame, axis=1)
     light_color = np.max(frame, axis=1)
     return spectra, light_color
+
+# Function to find peaks in the spectra
+def find_peaks_in_spectra(spectra, distance=10, height=None):
+    peaks, _ = find_peaks(spectra, distance=distance, height=height)
+    return peaks
 
 # Function to plot the spectra
 def plot_spectra(spectra, light_color, reference_spectra=None, width=240, height=240):
@@ -188,6 +195,17 @@ def display_on_lcd(image, disp):
     img = image.resize((disp.width, disp.height))
     disp.ShowImage(img)
 
+# Function to display the wavelengths of the peaks
+def display_peaks(peaks, wavelengths, disp):
+    peaks_img = Image.new('RGB', (disp.width, disp.height), 'white')
+    draw = ImageDraw.Draw(peaks_img)
+    font = ImageFont.load_default()
+
+    for i, (peak, wavelength) in enumerate(zip(peaks, wavelengths)):
+        draw.text((5, i * 10), f"Peak {i + 1}: {wavelength} nm", font=font, fill="black")
+
+    display_on_lcd(peaks_img, disp)
+
 # Main function
 def main():
     global reference_spectra
@@ -211,14 +229,19 @@ def main():
             camera_img = Image.fromarray(frame)
             current_camera_image = camera_img  # Save the current camera image to be served by Flask
 
-            if display_mode == 0:
-                display_on_lcd(camera_img, disp_main)
-            elif display_mode == 1:
-                spectra, light_color = process_frame(frame)
-                spectra_img = plot_spectra(spectra, light_color, reference_spectra, width=160, height=80)
-                current_plot = spectra_img  # Save the current plot to be served by Flask
-                display_on_lcd(camera_img.rotate(90), disp_main)
-                display_on_lcd(spectra_img, disp_side)
+            # Display camera image on main display
+            display_on_lcd(camera_img, disp_main)
+            
+            # Process frame and plot spectra
+            spectra, light_color = process_frame(frame)
+            spectra_img = plot_spectra(spectra, light_color, reference_spectra, width=240, height=240)
+            current_plot = spectra_img  # Save the current plot to be served by Flask
+            display_on_lcd(spectra_img, disp_side)
+
+            # Find peaks in the spectra
+            peaks = find_peaks_in_spectra(np.sum(spectra, axis=1), distance=10)
+            wavelengths = peaks * (240 / len(spectra))  # Simplified wavelength calculation
+            display_peaks(peaks[:10], wavelengths[:10], disp_side)  # Display up to 10 peaks
 
             logging.info(f'Frame processing time: {time.time() - start}')
             time.sleep(0.1)  # Short delay between frames
