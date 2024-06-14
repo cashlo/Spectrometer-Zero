@@ -240,7 +240,7 @@ def main():
             current_camera_image = camera_img  # Save the current camera image to be served by Flask
 
             # Display camera image on main display
-            display_on_lcd(camera_img, disp_main)
+            display_on_lcd(camera_img.rotate(90), disp_main)
             
             # Process frame and plot spectra
             spectra, light_color = process_frame(frame)
