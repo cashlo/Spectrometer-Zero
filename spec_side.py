@@ -62,7 +62,7 @@ def capture_full_res_image():
     picam2.stop()
 
     # Reconfigure the camera for the regular preview mode
-    config = picam2.create_still_configuration(main={"size": (240, 240)})
+    config = picam2.create_still_configuration(main={"size": (160,160})
     picam2.configure(config)
     picam2.start()
 
@@ -251,7 +251,7 @@ def main():
             
             # Process frame and plot spectra
             spectra, light_color = process_frame(frame)
-            spectra_img = plot_spectra(spectra, light_color, reference_spectra, width=240, height=240)
+            spectra_img = plot_spectra(spectra, light_color, reference_spectra, width=160, height=80)
             current_plot = spectra_img  # Save the current plot to be served by Flask
             display_on_lcd(spectra_img, disp_side1)
 
