@@ -10,7 +10,6 @@ from flask import Flask, send_file, render_template_string
 import threading
 import io
 import spidev as SPI
-from scipy.signal import find_peaks
 import datetime
 
 # Set up logging
@@ -24,11 +23,19 @@ disp_main.bl_DutyCycle(100)
 disp_main.bl_Frequency(1000)
 
 # Initialize the side display
-disp_side = LCD_side.LCD_0inch96(spi=SPI.SpiDev(0, 1), spi_freq=10000000, rst=23, dc=5, bl=12)
-disp_side.Init()
-disp_side.clear()
-disp_side.bl_DutyCycle(100)
-disp_side.bl_Frequency(1000)
+disp_side1 = LCD_side.LCD_side(spi=SPI.SpiDev(0, 1), spi_freq=10000000, rst=23, dc=5, bl=12)
+disp_side1.Init()
+disp_side1.clear()
+disp_side1.bl_DutyCycle(100)
+disp_side1.bl_Frequency(1000)
+
+disp_side2 = LCD_side.LCD_side(spi=SPI.SpiDev(0, 0), spi_freq=10000000, rst=24, dc=4, bl=13)
+disp_side2.Init()
+disp_side2.clear()
+disp_side2.bl_DutyCycle(100)
+disp_side2.bl_Frequency(1000)
+
+
 
 # GPIO Pin Definitions
 KEY1_PIN = 25
@@ -158,10 +165,13 @@ def process_frame(frame):
     light_color = np.max(frame, axis=1)
     return spectra, light_color
 
-# Function to find peaks in the spectra
-def find_peaks_in_spectra(spectra, distance=10, height=None):
-    peaks, _ = find_peaks(spectra, distance=distance, height=height)
-    return peaks
+# Function to find peaks in the spectra using NumPy
+def find_peaks_in_spectra(spectra, distance=10, threshold=0.1):
+    peaks = []
+    for i in range(distance, len(spectra) - distance):
+        if spectra[i] > threshold and spectra[i] == max(spectra[i - distance:i + distance + 1]):
+            peaks.append(i)
+    return np.array(peaks)
 
 # Function to plot the spectra
 def plot_spectra(spectra, light_color, reference_spectra=None, width=240, height=240):
@@ -202,7 +212,7 @@ def display_peaks(peaks, wavelengths, disp):
     font = ImageFont.load_default()
 
     for i, (peak, wavelength) in enumerate(zip(peaks, wavelengths)):
-        draw.text((5, i * 10), f"Peak {i + 1}: {wavelength} nm", font=font, fill="black")
+        draw.text((5, i * 10), f"Peak {i + 1}: {wavelength:.2f} nm", font=font, fill="black")
 
     display_on_lcd(peaks_img, disp)
 
@@ -236,12 +246,12 @@ def main():
             spectra, light_color = process_frame(frame)
             spectra_img = plot_spectra(spectra, light_color, reference_spectra, width=240, height=240)
             current_plot = spectra_img  # Save the current plot to be served by Flask
-            display_on_lcd(spectra_img, disp_side)
+            display_on_lcd(spectra_img, disp_side1)
 
             # Find peaks in the spectra
             peaks = find_peaks_in_spectra(np.sum(spectra, axis=1), distance=10)
             wavelengths = peaks * (240 / len(spectra))  # Simplified wavelength calculation
-            display_peaks(peaks[:10], wavelengths[:10], disp_side)  # Display up to 10 peaks
+            display_peaks(peaks[:10], wavelengths[:10], disp_side2)  # Display up to 10 peaks
 
             logging.info(f'Frame processing time: {time.time() - start}')
             time.sleep(0.1)  # Short delay between frames
