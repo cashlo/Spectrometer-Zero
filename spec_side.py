@@ -62,7 +62,7 @@ def capture_full_res_image():
     picam2.stop()
 
     # Reconfigure the camera for the regular preview mode
-    config = picam2.create_still_configuration(main={"size": (160,160})
+    config = picam2.create_still_configuration(main={"size": (160,160)})
     picam2.configure(config)
     picam2.start()
 
