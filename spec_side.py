@@ -52,7 +52,7 @@ current_plot = Image.new('RGB', (240, 240), 'white')  # Initialize current_plot
 current_camera_image = Image.new('RGB', (240, 240), 'black')  # Initialize current_camera_image
 
 # Calibration data (pixel positions and corresponding wavelengths)
-pixel_positions = np.array([215, 195, 159, 123, 79.5])
+pixel_positions = np.array([i/1.5 for i in [215, 195, 159, 123, 79.5]])
 wavelengths = np.array([405.4, 436.6, 487.7, 546.5, 611.6])
 
 # Fit a second-degree polynomial to the calibration data
