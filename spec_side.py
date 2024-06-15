@@ -186,6 +186,14 @@ def find_peaks_in_spectra(spectra, distance=10, threshold=0.1):
             peaks.append(i)
     return np.array(peaks)
 
+# Function to normalize color brightness
+def normalize_color(r, g, b):
+    max_val = max(r, g, b)
+    if max_val == 0:
+        return r, g, b
+    scale = 255 / max_val
+    return int(r * scale), int(g * scale), int(b * scale)
+
 # Function to plot the spectra
 def plot_spectra(spectra, light_color, reference_spectra=None, width=240, height=240):
     spectra_img = Image.new('RGB', (width, height), 'white')
@@ -198,6 +206,7 @@ def plot_spectra(spectra, light_color, reference_spectra=None, width=240, height
 
     for x, intensity in enumerate(normalized_spectra):
         r, g, b = light_color[x]
+        r, g, b = normalize_color(r, g, b)
         draw.line([(x, 0), (x, intensity)], fill=(r, g, b))  # Vertical bar
 
     # If reference spectra is provided, plot the transmission
@@ -230,6 +239,7 @@ def display_peaks(peaks, spectra, disp):
     for i, peak in enumerate(peaks[:10]):
         wavelength = wavelengths[i]
         r, g, b = spectra[peak]  # Color at the peak
+        r, g, b = normalize_color(r, g, b)
         text = f"Peak {i + 1}: {wavelength:.2f} nm"
         draw.text((5, i * 10), text, font=font, fill=(r, g, b))  # Use the color of the spectra
 
