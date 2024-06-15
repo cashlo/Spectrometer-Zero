@@ -166,11 +166,16 @@ def capture_full_res_image_route():
 def start_flask():
     app.run(host='0.0.0.0', port=5000)
 
-# Function to process the image and extract the spectra
+# Function to process the image and extract the spectra using the middle third of the image
 def process_frame(frame):
+    height, width, _ = frame.shape
+    start_col = width // 3
+    end_col = 2 * width // 3
+    middle_frame = frame[:, start_col:end_col]
+
     # Sum the pixel values along the horizontal axis to get the combined spectra
-    spectra = np.sum(frame, axis=1)
-    light_color = np.max(frame, axis=1)
+    spectra = np.sum(middle_frame, axis=1)
+    light_color = np.max(middle_frame, axis=1)
     return spectra, light_color
 
 # Function to find peaks in the spectra using NumPy
@@ -252,6 +257,12 @@ def main():
             start = time.time()
             frame = picam2.capture_array()
             camera_img = Image.fromarray(frame)
+            
+            # Draw red lines to indicate the area being used
+            draw = ImageDraw.Draw(camera_img)
+            draw.line([(frame.shape[1] // 3, 0), (frame.shape[1] // 3, frame.shape[0])], fill="red")
+            draw.line([(2 * frame.shape[1] // 3, 0), (2 * frame.shape[1] // 3, frame.shape[0])], fill="red")
+
             current_camera_image = camera_img  # Save the current camera image to be served by Flask
 
             # Display camera image on main display
