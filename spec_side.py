@@ -51,6 +51,14 @@ reference_spectra = None
 current_plot = Image.new('RGB', (240, 240), 'white')  # Initialize current_plot
 current_camera_image = Image.new('RGB', (240, 240), 'black')  # Initialize current_camera_image
 
+# Calibration data (pixel positions and corresponding wavelengths)
+pixel_positions = np.array([215, 195, 159, 123, 79.5])
+wavelengths = np.array([405.4, 436.6, 487.7, 546.5, 611.6])
+
+# Fit a second-degree polynomial to the calibration data
+coefficients = np.polyfit(pixel_positions, wavelengths, 2)
+calibration_polynomial = np.poly1d(coefficients)
+
 def capture_full_res_image():
     timestamp = datetime.now().isoformat()
     global picam2
@@ -212,7 +220,7 @@ def display_peaks(peaks, spectra, disp):
     font = ImageFont.load_default()
 
     # Create a list of the wavelength values and their corresponding colors
-    wavelengths = peaks * (240 / len(spectra))  # Simplified wavelength calculation
+    wavelengths = calibration_polynomial(peaks)  # Use the calibration polynomial to convert pixel positions to wavelengths
 
     for i, peak in enumerate(peaks[:10]):
         wavelength = wavelengths[i]
