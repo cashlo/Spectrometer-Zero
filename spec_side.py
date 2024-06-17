@@ -11,6 +11,7 @@ import threading
 import io
 import spidev as SPI
 import datetime
+from libcamera import controls
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -263,7 +264,7 @@ def main():
         "AnalogueGain": 1.0,          # Set the analogue gain
         "AwbEnable": False,           # Disable automatic white balance
         "AeEnable": False,            # Disable automatic exposure
-        "AfMode": "manual",           # Set autofocus mode to manual
+        "AfMode": controls.AfModeEnum.Manual,           # Set autofocus mode to manual
         "LensPosition": 0.5           # Set the lens position for manual focus
     })
 
