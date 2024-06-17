@@ -10,7 +10,7 @@ from flask import Flask, send_file, render_template_string
 import threading
 import io
 import spidev as SPI
-import datetime
+from datetime import datetime
 from libcamera import controls
 
 # Set up logging
@@ -264,8 +264,8 @@ def main():
         "AnalogueGain": 1.0,          # Set the analogue gain
         "AwbEnable": False,           # Disable automatic white balance
         "AeEnable": False,            # Disable automatic exposure
-        "AfMode": controls.AfModeEnum.Manual,           # Set autofocus mode to manual
-        "LensPosition": 0.5           # Set the lens position for manual focus
+#        "AfMode": controls.AfModeEnum.Manual,           # Set autofocus mode to manual
+#        "LensPosition": 0.5           # Set the lens position for manual focus
     })
 
     # Start Flask in a separate thread
