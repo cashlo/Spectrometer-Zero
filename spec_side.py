@@ -257,6 +257,16 @@ def main():
     picam2.configure(config)
     picam2.start()
 
+    # Fix camera settings
+    picam2.set_controls({
+        "ExposureTime": 20000,        # Set the exposure time in microseconds
+        "AnalogueGain": 1.0,          # Set the analogue gain
+        "AwbEnable": False,           # Disable automatic white balance
+        "AeEnable": False,            # Disable automatic exposure
+        "AfMode": "manual",           # Set autofocus mode to manual
+        "LensPosition": 0.5           # Set the lens position for manual focus
+    })
+
     # Start Flask in a separate thread
     flask_thread = threading.Thread(target=start_flask)
     flask_thread.daemon = True
