@@ -60,6 +60,12 @@ wavelengths = np.array([405.4, 436.6, 487.7, 546.5, 611.6])
 coefficients = np.polyfit(pixel_positions, wavelengths, 2)
 calibration_polynomial = np.poly1d(coefficients)
 
+# Add zoom and navigation variables
+zoomed = False
+zoom_window_start = 0
+zoom_window_size = 160  # Number of pixels in the zoom window
+total_spectra_length = 240  # Assuming the spectra have 240 pixels in width
+
 def capture_full_res_image():
     timestamp = datetime.now().isoformat()
     global picam2
@@ -90,8 +96,28 @@ def capture_reference_spectra():
     reference_spectra, _ = process_frame(frame)
     logging.info("Reference spectra captured")
 
-button1.when_pressed = capture_full_res_image
-button2.when_pressed = capture_reference_spectra
+# Function to toggle zoom and adjust the zoom window
+def toggle_zoom():
+    global zoomed, zoom_window_start
+    zoomed = not zoomed
+    if zoomed:
+        # Start zoomed into the middle
+        zoom_window_start = total_spectra_length // 2 - zoom_window_size // 2
+    else:
+        zoom_window_start = 0  # Reset if not zoomed
+    logging.info(f"Zoom toggled: {'Zoomed in' if zoomed else 'Zoomed out'}")
+
+# Function to move the zoom window right
+def move_zoom_right():
+    global zoom_window_start
+    if zoomed and zoom_window_start < total_spectra_length - zoom_window_size:
+        zoom_window_start = min(total_spectra_length - zoom_window_size, zoom_window_start + 10)
+    logging.info(f"Moved right to {zoom_window_start}")
+
+# button1.when_pressed = capture_full_res_image
+# button2.when_pressed = capture_reference_spectra
+button1.when_pressed = move_zoom_right
+button2.when_pressed = toggle_zoom
 
 # Flask setup
 app = Flask(__name__)
@@ -205,10 +231,21 @@ def plot_spectra(spectra, light_color, reference_spectra=None, width=240, height
     max_intensity = np.max(combined_spectra)
     normalized_spectra = (combined_spectra / max_intensity * (height - 1)).astype(int)
 
-    for x, intensity in enumerate(normalized_spectra):
-        r, g, b = light_color[x]
-        r, g, b = normalize_color(r, g, b)
-        draw.line([(x, 0), (x, intensity)], fill=(r, g, b))  # Vertical bar
+    # If zoomed, only plot the zoom window
+    if zoomed:
+        start = zoom_window_start
+        end = zoom_window_start + zoom_window_size
+        zoomed_spectra = normalized_spectra[start:end]
+        for x, intensity in enumerate(zoomed_spectra):
+            r, g, b = light_color[start + x]
+            r, g, b = normalize_color(r, g, b)
+            draw.line([(x, 0), (x, intensity)], fill=(r, g, b))  # Vertical bar
+    else:
+        # Plot the entire spectra if not zoomed
+        for x, intensity in enumerate(normalized_spectra):
+            r, g, b = light_color[x]
+            r, g, b = normalize_color(r, g, b)
+            draw.line([(x, 0), (x, intensity)], fill=(r, g, b))  # Vertical bar
 
     # If reference spectra is provided, plot the transmission
     if reference_spectra is not None:
@@ -254,7 +291,7 @@ def main():
     global current_plot
     global current_camera_image
     picam2 = Picamera2()
-    config = picam2.create_still_configuration(main={"size": (160,160)})  # Use full display height for the camera
+    config = picam2.create_still_configuration(main={"size": (1920, 1080)})  # Use full display height for the camera
     picam2.configure(config)
     picam2.start()
 
